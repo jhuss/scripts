@@ -1,0 +1,60 @@
+#!/bin/bash
+# mysql-vsock: Generador de sockets de mysql para vhosts
+# Autor: Jesús Jerez <jhuss@jhuss.net>
+# Licencia: BSD
+# Requiere: mysql, socat, awk, pgrep
+
+vroot=/var/http		# raiz webserver
+vrun=var/run/mysqld	# var/run
+vsock=mysqld.sock	# mysql socket
+vforders=`ls $vroot`	# vhost dentro de la raiz
+vmysql=()		# array para vhost con mysql
+pidsocat=()		# array PID de socat
+
+for vdir in $vforders
+do
+ if [ -d "$vroot/$vdir/$vrun/" ] # verificar si tienen var/run/mysqld
+ then
+  vmysql+=("$vdir") # agrega el vhost a la lista para mysql 
+ fi
+done
+
+case "$1" in
+ "$vsock")
+  case "$2" in
+   "IN_DELETE")
+    # detener los sockets en los vhost
+    pidsocat+=("`pgrep -lf socat | awk '{printf "%d;%s\n", $1, $3}'`") # listar los procesos socat
+    for vpid in ${pidsocat[@]}
+    do
+     for i in $vmysql
+     do
+      filter_path=`echo "$vpid" | awk '{print $2}' FS=";" | awk '{print $2}' FS=":" | awk '{print $1}' FS=","`
+      filter_pid=`echo "$vpid" | awk '{print $1}' FS=";"`
+      if [ "$vroot/$i/$vrun/$vsock" == "$filter_path" ] # comparar que el socat corresponda a uno creado para el vhost
+      then
+       kill -9 $filter_pid # detener socat si pertenece al vhost
+      fi
+     done
+    done
+    # revisar si quedan .sock en los vhost y borrarlos
+    for i in $vmysql
+    do
+     if [ -e "$vroot/$i/$vrun/$vsock" ]
+     then
+      rm $vroot/$i/$vrun/$vsock
+     fi
+    done
+   ;;
+   "IN_CREATE")
+    for i in $vmysql
+    do
+     if [ ! -e "$vroot/$i/$vrun/$vsock" ]
+     then
+      socat UNIX-LISTEN:$vroot/$i/$vrun/$vsock,user=mysql,group=mysql,mode=777,fork TCP:localhost:3306 &2> /dev/null
+     fi
+    done
+   ;;
+   esac
+  ;;
+esac
