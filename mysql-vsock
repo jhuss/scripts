@@ -3,11 +3,16 @@
 # Autor: Jesús Jerez <jhuss@jhuss.net>
 # Licencia: BSD
 # Requiere: mysql, socat, awk, pgrep
+#
+# Uso:
+# mysql-vsock <socket> <acción>
+# <socket> debe coincidir con los casos evaluados en $1
+# <acción> en éste caso son definidos por inotify, pueden ser cambiados en la evaluación de $2
 
-vroot=/var/http		# raiz webserver
+vroot=/var/http		# raíz webserver
 vrun=var/run/mysqld	# var/run
 vsock=mysqld.sock	# mysql socket
-vforders=`ls $vroot`	# vhost dentro de la raiz
+vforders=`ls $vroot`	# vhost dentro de la raíz
 vmysql=()		# array para vhost con mysql
 pidsocat=()		# array PID de socat
 
